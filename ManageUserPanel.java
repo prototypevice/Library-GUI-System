@@ -47,4 +47,6 @@ public class ManageUserPanel extends JPanel {
         button.setFocusPainted(false);
         return button;
     }
+
+    //COMMENT
 }
