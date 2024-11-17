@@ -98,6 +98,7 @@ public class MainGUI extends JFrame {
         bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.add(darkModeButton, BorderLayout.WEST);
         bottomPanel.add(logOutButton, BorderLayout.EAST);
+        bottomPanel.setBackground(Color.white);
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
@@ -356,7 +357,7 @@ public class MainGUI extends JFrame {
     private void applyLightMode() {
         backgroundPanel.setBackground(new Color(240, 240, 240));
         mainPanel.setBackground(new Color(255, 255, 255));
-        bottomPanel.setBackground(new Color(240, 240, 240));
+        bottomPanel.setBackground(new Color(255, 255, 255));
         titleLabel.setForeground(Color.BLACK);
         logOutButton.setBackground(Color.BLACK);
         logOutButton.setForeground(Color.WHITE);
@@ -367,8 +368,8 @@ public class MainGUI extends JFrame {
         mainPanel.setBackground(new Color(45, 45, 45));
         bottomPanel.setBackground(new Color(45, 45, 45));
         titleLabel.setForeground(Color.WHITE);
-        logOutButton.setBackground(new Color(255, 69, 0));
-        logOutButton.setForeground(Color.BLACK);
+        logOutButton.setBackground(new Color(24, 65, 4));
+        logOutButton.setForeground(Color.white);
     }
 
     public void switchToMainPage() {
@@ -391,7 +392,6 @@ public class MainGUI extends JFrame {
         CardLayout cl = (CardLayout) backgroundPanel.getLayout();
         cl.show(backgroundPanel, "AddUserPage");
     }
-
 
     private void switchToViewUserProfilePage() {
         logOutButton.setVisible(false);
