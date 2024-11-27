@@ -1,13 +1,9 @@
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class BookManager {
-
-    // Path to the book database file (books.txt)
     private static final String BOOKS_FILE = "books.txt";
 
-    // Book class to represent a book object
     public static class Book {
         String title;
         String publisher;
@@ -29,21 +25,34 @@ public class BookManager {
         public String toString() {
             return title + "," + publisher + "," + isbn + "," + author + "," + quantity + "," + genre;
         }
-    }
 
-    // Method to save a book to the books.txt file
-    public static boolean saveBook(Book book) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(BOOKS_FILE, true))) {
-            writer.write(book.toString());
-            writer.newLine();  // Add a new line after each book entry
-            return true;  // Successfully added
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;  // Failed to add book
+        // User-friendly format for debugging or display
+        public String toFormattedString() {
+            return "Title: " + title + "\n" +
+                    "Publisher: " + publisher + "\n" +
+                    "ISBN: " + isbn + "\n" +
+                    "Author: " + author + "\n" +
+                    "Quantity: " + quantity + "\n" +
+                    "Genre: " + genre;
         }
     }
 
-    // Method to load all books from books.txt
+    // Save all books to the file (overwrite entire file)
+    public static boolean saveBooks(List<Book> books) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(BOOKS_FILE))) {
+            for (Book book : books) {
+                writer.write(book.toString());
+                writer.newLine();
+            }
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace(); // Logs the full stack trace for debugging
+            System.err.println("Error saving books: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // Load all books from the file
     public static List<Book> loadBooks() {
         List<Book> books = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(BOOKS_FILE))) {
@@ -51,31 +60,123 @@ public class BookManager {
             while ((line = reader.readLine()) != null) {
                 String[] bookDetails = line.split(",");
                 if (bookDetails.length == 6) {
-                    String title = bookDetails[0];
-                    String publisher = bookDetails[1];
-                    String isbn = bookDetails[2];
-                    String author = bookDetails[3];
-                    int quantity = Integer.parseInt(bookDetails[4]);
-                    String genre = bookDetails[5];
-
-                    Book book = new Book(title, publisher, isbn, author, quantity, genre);
-                    books.add(book);
+                    try {
+                        Book book = new Book(
+                                bookDetails[0],
+                                bookDetails[1],
+                                bookDetails[2],
+                                bookDetails[3],
+                                Integer.parseInt(bookDetails[4]),
+                                bookDetails[5]
+                        );
+                        books.add(book);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Error parsing book data: " + line);
+                    }
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            e.printStackTrace(); // Logs the full stack trace for debugging
+            System.err.println("Error loading books: " + e.getMessage());
         }
         return books;
     }
 
-    // Method to check if a book already exists by ISBN
-    public static boolean bookExists(String isbn) {
+    // Remove book based on Title
+    public static boolean removeBookByTitle(String title) {
+        if (title == null || title.trim().isEmpty()) {
+            System.err.println("Error: Title cannot be null or empty.");
+            return false;
+        }
+
+        List<Book> books = loadBooks();
+        boolean isRemoved = books.removeIf(book -> book.title.equalsIgnoreCase(title.trim())); // Safely remove by title
+
+        if (isRemoved) {
+            return saveBooks(books);  // Save the updated list back to the file
+        }
+
+        System.err.println("Book with title \"" + title + "\" not found.");
+        return false;
+    }
+
+    // Update the details of an existing book based on ISBN
+    public static boolean updateBookDetails(String isbn, String newAuthor, int newQuantity) {
+        if (isbn == null || isbn.trim().isEmpty()) {
+            System.err.println("Error: ISBN cannot be null or empty.");
+            return false;
+        }
+
         List<Book> books = loadBooks();
         for (Book book : books) {
-            if (book.isbn.equals(isbn)) {
-                return true;  // Book with the same ISBN exists
+            if (book.isbn.equalsIgnoreCase(isbn)) {
+                book.author = newAuthor;
+                book.quantity = newQuantity;
+
+                // After updating, save the entire list back to the file
+                return saveBooks(books);
             }
         }
-        return false;  // No book found with this ISBN
+        System.err.println("Book with ISBN " + isbn + " not found.");
+        return false;
+    }
+
+    // Check if a book with the same ISBN already exists
+    public static boolean bookExists(String isbn) {
+        if (isbn == null || isbn.trim().isEmpty()) {
+            return false;
+        }
+
+        List<Book> books = loadBooks();
+        for (Book book : books) {
+            if (book.isbn.equalsIgnoreCase(isbn)) {
+                return true;  // ISBN already exists
+            }
+        }
+        return false;
+    }
+
+    // Validates if the given genre exists in the predefined set of valid genres
+    public static boolean isValidGenre(String genre) {
+        // Set of valid genres
+        Set<String> validGenres = Set.of(
+                "Adventure", "Contemporary Fiction", "Fantasy", "Historical Fiction", "Horror",
+                "Literary Fiction", "Mystery", "Romance", "Science Fiction", "Thriller",
+                "Young Adult (YA)", "Children’s Fiction", "Dystopian", "Fairy Tale", "Paranormal",
+                "Action", "Urban Fantasy", "Western", "Biography", "Autobiography", "Memoir",
+                "Self-Help", "Health & Wellness", "Cookbook", "Travel", "Philosophy",
+                "Psychology", "True Crime", "Politics", "Economics", "Science", "History",
+                "Religion & Spirituality", "Art & Photography", "Business", "Education",
+                "Historical Romance", "Romantic Suspense", "Fantasy Romance",
+                "Science Fiction Romance", "Crime Fiction", "Fantasy Mystery", "Cyberpunk",
+                "Steampunk", "Sword and Sorcery", "Space Opera", "Magical Realism",
+                "Action & Adventure", "Alternate History", "Contemporary Romance", "Cozy Mystery",
+                "Dark Fantasy", "Epic Fantasy", "Fairy Tale Retellings", "High Fantasy",
+                "Historical Mystery", "Historical Thriller", "Military Science Fiction",
+                "Paranormal Romance", "Political Thriller", "Post-Apocalyptic", "Psychological Thriller",
+                "Religious Fiction", "Satire", "Space Western", "Sports Fiction", "Superhero",
+                "Time Travel", "Urban Horror", "Supernatural Thriller", "True Story",
+                "Teen Fiction", "Metafiction", "Magical Fantasy", "Gothic Fiction", "Philosophical Fiction",
+                "Urban Lit", "Speculative Fiction", "Young Adult Fantasy", "Contemporary Poetry",
+                "Coming-of-Age", "Christian Fiction", "LGBTQ+ Fiction", "New Adult", "LGBTQ+ Romance",
+                "Women's Fiction", "Teen Romance", "Alternate Reality", "Graphic Novel", "Comic Book",
+                "Cyberpunk Romance", "Paranormal Mystery", "True Crime Memoir", "Historical Fantasy",
+                "Historical Thriller Fiction", "Fantasy Adventure", "Young Adult Thriller",
+                "Animal Fiction", "Food Fiction", "Techno-Thriller", "Space Opera Fantasy", "Ghost Stories",
+                "Eco-Fiction", "Business Thriller", "Dark Romance", "High-tech Fiction", "Historical Biography",
+                "Science Fantasy", "Family Saga", "Spy Thriller", "Military Thriller", "Historical Horror",
+                "Military Fiction", "Alternate Fantasy", "Western Romance", "Cult Fiction", "Zombie Fiction",
+                "Cultural Fiction", "Espionage Fiction", "Experimental Fiction", "Dystopian Romance",
+                "Steampunk Fantasy", "Space Exploration", "Teen Horror", "Apocalyptic Fiction",
+                "Horror Comedy", "Psychological Horror", "Romantic Comedy", "Historical Family Saga",
+                "Historical Romance Fiction", "Young Adult Historical Fiction", "Historical Epic",
+                "Rural Fiction", "Victorian Fiction", "Cyberpunk Thriller", "Futuristic Fiction",
+                "Comedy Fiction", "Magical Realism Romance", "Modern Gothic", "Mythological Fiction",
+                "Epic Adventure", "Fantasy Thriller", "Utopian Fiction", "Political Fiction"
+        );
+
+        // Convert both the input genre and the valid genres to lowercase for case-insensitive comparison
+        return validGenres.stream()
+                .anyMatch(validGenre -> validGenre.equalsIgnoreCase(genre.trim()));
     }
 }

@@ -4,15 +4,8 @@ import java.io.BufferedWriter;  // Imports BufferedWriter for writing text to a 
 import java.io.FileWriter;  // Imports FileWriter to write data to a file (used in combination with BufferedWriter)
 import java.io.IOException;  // Imports IOException for handling input/output errors that may occur during file operations
 import java.util.ArrayList;  // Imports ArrayList, a dynamic array class for storing a list of objects
-import java.util.List;  // Imports List interface to define a list of objects, which ArrayList implements
-import javax.swing.text.AbstractDocument;  // Imports AbstractDocument class, which is used for handling text documents in JTextComponents (like JTextField)
-import javax.swing.text.AttributeSet;  // Imports AttributeSet, which defines text attributes (like font style and color)
-import javax.swing.text.BadLocationException;  // Imports BadLocationException, which is thrown when the position in a text document is invalid
-import javax.swing.text.DocumentFilter;  // Imports DocumentFilter for controlling the content and formatting of text in a JTextComponent (like JTextField)
-import java.awt.event.KeyAdapter;  // Imports KeyAdapter class for listening to key events on components, with default empty implementations
-import java.awt.event.KeyEvent;  // Imports KeyEvent, which represents a key event in AWT, such as key presses and releases
-import java.awt.event.FocusAdapter;  // Imports FocusAdapter class to listen for focus events on components, with default empty implementations
-import java.awt.event.FocusEvent;  // Imports FocusEvent, which represents an event triggered when a component gains or loses focus
+import java.util.List;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.JTable;  // For JTable
 import javax.swing.JScrollPane;  // For JScrollPane (to make JTable scrollable)
 import java.awt.Color;  // For setting the color of text in JTable cells
@@ -38,6 +31,11 @@ public class MainGUI extends JFrame {
     private JPanel updateBookPage;
     private JPanel inventoryBookPage;
     private JPanel checkBookAvailability;
+    private JPanel centerPanel;
+    private JTable bookTable;
+    private JPanel inventoryPage;
+    private JPanel checkBookAvailabilityPage;
+
 
 
 
@@ -94,6 +92,9 @@ public class MainGUI extends JFrame {
         setupCheckBookAvailability();
         backgroundPanel.add(checkBookAvailability, "checkBookAvailability");
 
+        removeBookPage = new JPanel();  // Example initialization
+        inventoryPage = new JPanel();  // Example initialization
+        checkBookAvailabilityPage = new JPanel();  // Example initialization
 
         // Initialize with light mode
         applyLightMode();
@@ -430,7 +431,7 @@ public class MainGUI extends JFrame {
         manageBookPage.add(bottomPanel, BorderLayout.SOUTH);
     }
 
-    private void setupAddBookPage() {
+    private void setupAddBookPage(){
         addBookPage = new JPanel(new BorderLayout());
         addBookPage.setBackground(Color.white);
 
@@ -458,7 +459,7 @@ public class MainGUI extends JFrame {
         topPanel.add(titleLabel, BorderLayout.SOUTH);
         addBookPage.add(topPanel, BorderLayout.NORTH);
 
-        // Creates new text fields for adding book information.
+        // Creates new text fields for adding book information
         JPanel centerPanel = new JPanel(new GridLayout(6, 2, 10, 10));
         centerPanel.setBorder(BorderFactory.createEmptyBorder(10, 50, 20, 50));
         centerPanel.setBackground(Color.white);
@@ -497,6 +498,7 @@ public class MainGUI extends JFrame {
         backButton.setPreferredSize(new Dimension(150, 40));
         backButton.addActionListener(e -> {
             switchToManageBookPage();
+            resetFields(titleField, publisherField, isbnField, authorField, quantityField, genreField);
         });
 
         // Add Book Button
@@ -508,21 +510,33 @@ public class MainGUI extends JFrame {
             String isbn = isbnField.getText();
             String author = authorField.getText();
             String quantityStr = quantityField.getText();
-            String genre = genreField.getText();
+            String genre = genreField.getText().trim();  // Keep the original case for the input
 
             // Basic validation
             if (title.isEmpty() || publisher.isEmpty() || isbn.isEmpty() || author.isEmpty() || quantityStr.isEmpty() || genre.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please fill out all fields.", "Error", JOptionPane.ERROR_MESSAGE);
             } else if (isbn.length() != 13 || !isbn.matches("\\d+")) { // Check for valid ISBN (13 digits)
                 JOptionPane.showMessageDialog(this, "ISBN must be 13 digits.", "Error", JOptionPane.ERROR_MESSAGE);
+            } else if (!BookManager.isValidGenre(genre)) {
+                JOptionPane.showMessageDialog(this, "Invalid genre. Please choose from the list of valid genres.", "Error", JOptionPane.ERROR_MESSAGE);
             } else {
                 try {
                     int quantity = Integer.parseInt(quantityStr);
                     BookManager.Book book = new BookManager.Book(title, publisher, isbn, author, quantity, genre);
-                    boolean success = BookManager.saveBook(book);
+
+                    // Get the current list of books, add the new book and save the updated list
+                    List<BookManager.Book> books = BookManager.loadBooks();
+                    books.add(book);
+                    boolean success = BookManager.saveBooks(books);
 
                     if (success) {
                         JOptionPane.showMessageDialog(this, "Book successfully added!", "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                        // Refresh the table to reflect the added book
+                        refreshInventoryTable();
+
+                        // Also, update the CheckBookAvailability page with the new book
+                        loadBooksIntoTable(checkBookAvailability);  // Update the check availability table
 
                         // Show confirmation dialog to add another book or go back to Manage Book page
                         int option = JOptionPane.showConfirmDialog(this,
@@ -530,14 +544,10 @@ public class MainGUI extends JFrame {
                                 JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 
                         if (option == JOptionPane.YES_OPTION) {
-                            titleField.setText("");
-                            publisherField.setText("");
-                            isbnField.setText("");
-                            authorField.setText("");
-                            quantityField.setText("");
-                            genreField.setText("");
+                            resetFields(titleField, publisherField, isbnField, authorField, quantityField, genreField);
                         } else {
                             switchToManageBookPage();
+                            resetFields(titleField, publisherField, isbnField, authorField, quantityField, genreField);
                         }
                     } else {
                         JOptionPane.showMessageDialog(this, "Failed to add book. Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -548,13 +558,22 @@ public class MainGUI extends JFrame {
             }
         });
 
-
         // Add buttons to the bottom panel
         bottomPanel.add(backButton, BorderLayout.WEST);
         bottomPanel.add(addBookButton, BorderLayout.EAST);
 
         addBookPage.add(bottomPanel, BorderLayout.SOUTH);
         backgroundPanel.add(addBookPage, "AddBookPage");
+    }
+
+    private void resetFields(JTextField titleField, JTextField publisherField, JTextField isbnField, JTextField authorField,
+                             JTextField quantityField, JTextField genreField) {
+        titleField.setText("");
+        publisherField.setText("");
+        isbnField.setText("");
+        authorField.setText("");
+        quantityField.setText("");
+        genreField.setText("");
     }
 
     private void setupRemoveBookPage() {
@@ -592,14 +611,13 @@ public class MainGUI extends JFrame {
         gbc.gridy = 0;
         centerPanel.add(new JLabel("Title:"), gbc);
 
-        // Title Input Field (Bigger size)
+        // Title Input Field
         gbc.gridx = 1;
         gbc.gridy = 0;
         JTextField titleField = new JTextField(20);
         titleField.setPreferredSize(new Dimension(titleField.getPreferredSize().width, 40));
         centerPanel.add(titleField, gbc);
 
-        // Add the panel to the removeBookPage
         removeBookPage.add(centerPanel, BorderLayout.CENTER);
 
         // Bottom Panel for Buttons
@@ -627,7 +645,7 @@ public class MainGUI extends JFrame {
             }
 
             if (!booksWithSameTitle.isEmpty()) {
-                // Display a list of books with the same title (only showing title and author)
+                // Display a list of books with the same title
                 DefaultListModel<BookManager.Book> model = new DefaultListModel<>();
                 booksWithSameTitle.forEach(model::addElement);
                 JList<BookManager.Book> bookList = new JList<>(model);
@@ -663,10 +681,8 @@ public class MainGUI extends JFrame {
                                 "Are you sure you want to delete the following book?\n\n" + bookDetails,
                                 "Confirm Deletion", JOptionPane.YES_NO_OPTION);
                         if (confirm == JOptionPane.YES_OPTION) {
-                            // Remove the selected book using a direct property comparison
-                            books.removeIf(book -> book.title.equalsIgnoreCase(selectedBook.title)
-                                    && book.author.equalsIgnoreCase(selectedBook.author)
-                                    && book.isbn.equals(selectedBook.isbn));
+                            // Remove the selected book from the list
+                            books.removeIf(book -> book.isbn.equals(selectedBook.isbn)); // Use ISBN for uniqueness
 
                             // Write updated list to the file
                             try (BufferedWriter writer = new BufferedWriter(new FileWriter("books.txt"))) {
@@ -675,6 +691,21 @@ public class MainGUI extends JFrame {
                                     writer.newLine();
                                 }
                                 JOptionPane.showMessageDialog(this, "Book removed successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                                // Refresh the inventory table
+                                SwingUtilities.invokeLater(this::refreshInventoryTable);
+
+                                // Ask if the user wants to remove more books
+                                int removeMore = JOptionPane.showConfirmDialog(this, "Do you want to remove another book?",
+                                        "Remove More?", JOptionPane.YES_NO_OPTION);
+                                if (removeMore == JOptionPane.NO_OPTION) {
+                                    titleField.setText("");
+                                    // Switch to inventory page
+                                    refreshInventoryTable(); // Ensure inventory is updated before switching
+                                    switchToManageBookPage();
+                                } else {
+                                    titleField.setText(""); // Clear for next removal
+                                }
                             } catch (IOException ex) {
                                 ex.printStackTrace();
                                 JOptionPane.showMessageDialog(this, "Failed to remove the book.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -694,7 +725,11 @@ public class MainGUI extends JFrame {
         JButton backButton = new JButton("Back");
         backButton.setFont(new Font("SansSerif", Font.BOLD, 16));
         backButton.setPreferredSize(new Dimension(200, 50));
-        backButton.addActionListener(e -> switchToManageBookPage());
+        backButton.addActionListener(e -> {
+            titleField.setText("");  // Clear text field
+            refreshInventoryTable(); // Ensure inventory is refreshed before going back
+            switchToManageBookPage(); // Switch to manage page
+        });
         bottomPanel.add(backButton);
 
         removeBookPage.add(bottomPanel, BorderLayout.SOUTH);
@@ -781,7 +816,7 @@ public class MainGUI extends JFrame {
                     public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
                         JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                         BookManager.Book book = (BookManager.Book) value;
-                        label.setText(book.title + " by " + book.author); // Display title and author only
+                        label.setText(book.title + " by " + book.author);
                         return label;
                     }
                 });
@@ -794,98 +829,33 @@ public class MainGUI extends JFrame {
                 if (option == JOptionPane.OK_OPTION) {
                     BookManager.Book selectedBook = bookList.getSelectedValue();
                     if (selectedBook != null) {
-                        // Pre-fill fields with the selected book's information
-                        JTextField isbnFieldEditable = new JTextField(selectedBook.isbn, 20);
-                        JTextField titleEditableField = new JTextField(selectedBook.title, 20);
-                        JTextField publisherField = new JTextField(selectedBook.publisher, 20);
-                        JTextField authorField = new JTextField(selectedBook.author, 20);
-                        JTextField quantityField = new JTextField(String.valueOf(selectedBook.quantity), 5);
-                        JTextField genreField = new JTextField(selectedBook.genre, 20);
+                        // Display the details of the selected book for editing
+                        JTextField titleEditField = new JTextField(selectedBook.title);
+                        JTextField authorEditField = new JTextField(selectedBook.author);
+                        JTextField publisherEditField = new JTextField(selectedBook.publisher);
+                        JTextField isbnEditField = new JTextField(selectedBook.isbn);
+                        JTextField quantityEditField = new JTextField(String.valueOf(selectedBook.quantity));
 
-                        // ISBN Validation (13 digits only, numeric)
-                        ((AbstractDocument) isbnFieldEditable.getDocument()).setDocumentFilter(new DocumentFilter() {
-                            @Override
-                            public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
-                                if (string.matches("[0-9]{0,13}")) {  // Only numbers and a max of 13 digits
-                                    super.insertString(fb, offset, string, attr);
-                                }
-                            }
-
-                            @Override
-                            public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
-                                if (text.matches("[0-9]{0,13}")) {  // Only numbers and a max of 13 digits
-                                    super.replace(fb, offset, length, text, attrs);
-                                }
-                            }
-                        });
-
-                        // Ensure the ISBN is exactly 13 characters
-                        isbnFieldEditable.addFocusListener(new FocusAdapter() {
-                            @Override
-                            public void focusLost(FocusEvent e) {
-                                String isbnText = isbnFieldEditable.getText();
-                                if (isbnText.length() > 13) {
-                                    JOptionPane.showMessageDialog(updateBookPage, "ISBN must not exceed 13 digits.", "Error", JOptionPane.ERROR_MESSAGE);
-                                    // Set the focus back to the ISBN field
-                                    isbnFieldEditable.requestFocus();
-                                }
-                            }
-                        });
-
-                        isbnFieldEditable.addKeyListener(new KeyAdapter() {
-                            @Override
-                            public void keyTyped(KeyEvent e) {
-                                // Check if the length exceeds 13 and if so, prevent further input
-                                if (isbnFieldEditable.getText().length() >= 13) {
-                                    e.consume(); // Prevent further input
-                                    JOptionPane.showMessageDialog(updateBookPage, "ISBN must be exactly 13 digits.", "Error", JOptionPane.ERROR_MESSAGE);
-                                }
-                            }
-                        });
-
-                        // Quantity Validation (Only numeric)
-                        quantityField.addKeyListener(new KeyAdapter() {
-                            @Override
-                            public void keyTyped(KeyEvent e) {
-                                char c = e.getKeyChar();
-                                if (!(Character.isDigit(c) || c == KeyEvent.VK_BACK_SPACE || c == KeyEvent.VK_DELETE)) {
-                                    e.consume();  // Reject non-numeric characters
-                                }
-                            }
-                        });
-
-                        Object[] fields = {
-                                "ISBN:", isbnFieldEditable,
-                                "Title:", titleEditableField,
-                                "Publisher:", publisherField,
-                                "Author:", authorField,
-                                "Quantity:", quantityField,
-                                "Genre:", genreField
+                        Object[] message = {
+                                "Title:", titleEditField,
+                                "Author:", authorEditField,
+                                "Publisher:", publisherEditField,
+                                "ISBN:", isbnEditField,
+                                "Quantity:", quantityEditField
                         };
 
-                        int result = JOptionPane.showConfirmDialog(this, fields, "Update Book", JOptionPane.OK_CANCEL_OPTION);
+                        int optionEdit = JOptionPane.showConfirmDialog(this, message, "Edit Book", JOptionPane.OK_CANCEL_OPTION);
+                        if (optionEdit == JOptionPane.OK_OPTION) {
+                            // Update the book details
+                            selectedBook.title = titleEditField.getText();
+                            selectedBook.author = authorEditField.getText();
+                            selectedBook.publisher = publisherEditField.getText();
+                            selectedBook.isbn = isbnEditField.getText();
+                            selectedBook.quantity = Integer.parseInt(quantityEditField.getText());
 
-                        if (result == JOptionPane.OK_OPTION) {
-                            String newIsbn = isbnFieldEditable.getText();
-                            String newTitle = titleEditableField.getText();
-                            String newPublisher = publisherField.getText();
-                            String newAuthor = authorField.getText();
-                            int newQuantity = Integer.parseInt(quantityField.getText());
-                            String newGenre = genreField.getText();
-
-                            // Validate ISBN length
-                            if (newIsbn.length() != 13) {
-                                JOptionPane.showMessageDialog(this, "ISBN must be exactly 13 digits.", "Error", JOptionPane.ERROR_MESSAGE);
-                                return;
-                            }
-
-                            // Update the selected book's fields
-                            selectedBook.isbn = newIsbn;
-                            selectedBook.title = newTitle;
-                            selectedBook.publisher = newPublisher;
-                            selectedBook.author = newAuthor;
-                            selectedBook.quantity = newQuantity;
-                            selectedBook.genre = newGenre;
+                            // Update the books list
+                            books.removeIf(book -> book.title.equalsIgnoreCase(selectedBook.title) && book.isbn.equals(selectedBook.isbn));
+                            books.add(selectedBook);
 
                             // Write updated list to the file
                             try (BufferedWriter writer = new BufferedWriter(new FileWriter("books.txt"))) {
@@ -894,11 +864,12 @@ public class MainGUI extends JFrame {
                                     writer.newLine();
                                 }
                                 JOptionPane.showMessageDialog(this, "Book updated successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                                // After updating, refresh the inventory page
+                                refreshInventoryTable();
                             } catch (IOException ex) {
                                 ex.printStackTrace();
-                                JOptionPane.showMessageDialog(this, "Failed to update book.", "Error", JOptionPane.ERROR_MESSAGE);
-                            } catch (NumberFormatException ex) {
-                                JOptionPane.showMessageDialog(this, "Quantity must be a valid number.", "Error", JOptionPane.ERROR_MESSAGE);
+                                JOptionPane.showMessageDialog(this, "Failed to update the book.", "Error", JOptionPane.ERROR_MESSAGE);
                             }
                         }
                     } else {
@@ -915,14 +886,15 @@ public class MainGUI extends JFrame {
         JButton backButton = new JButton("Back");
         backButton.setFont(new Font("SansSerif", Font.BOLD, 16));
         backButton.setPreferredSize(new Dimension(200, 50));
-        backButton.addActionListener(e -> switchToManageBookPage());
+        backButton.addActionListener(e -> {
+            // Clear the text field when going back
+            titleField.setText("");
+            switchToManageBookPage();
+        });
         bottomPanel.add(backButton);
 
         updateBookPage.add(bottomPanel, BorderLayout.SOUTH);
     }
-
-
-
 
     private void setupInventoryBookPage() {
         inventoryBookPage = new JPanel(new BorderLayout());
@@ -950,44 +922,18 @@ public class MainGUI extends JFrame {
         topPanel.add(iconLabel, BorderLayout.NORTH);
         topPanel.add(titleLabel, BorderLayout.CENTER);
 
-        // Add the top panel to the inventory book page and center panel
+        // Add the top panel to the inventory book page
         inventoryBookPage.add(topPanel, BorderLayout.NORTH);
-        JPanel centerPanel = new JPanel(new BorderLayout());
+
+        // Initialize and add the center panel
+        centerPanel = new JPanel(new BorderLayout());
         centerPanel.setBackground(Color.WHITE);
-
-        // Load books from the file
-        List<BookManager.Book> books = BookManager.loadBooks();
-
-        // Create column headers for the table
-        String[] columnNames = {"Title", "Publisher", "ISBN", "Author", "Quantity", "Genre"};
-
-        // Create data array for the table
-        Object[][] data = new Object[books.size()][columnNames.length];
-        for (int i = 0; i < books.size(); i++) {
-            BookManager.Book book = books.get(i);
-            data[i][0] = book.title;
-            data[i][1] = book.publisher;
-            data[i][2] = book.isbn;
-            data[i][3] = book.author;
-            data[i][4] = book.quantity;
-            data[i][5] = book.genre;
-        }
-
-        // Create the table
-        JTable bookTable = new JTable(data, columnNames);
-        bookTable.setFillsViewportHeight(true);
-        bookTable.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
-        bookTable.setRowHeight(25);
-        bookTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        bookTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 14));
-
-        // Add the table to a scroll pane
-        JScrollPane scrollPane = new JScrollPane(bookTable);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
-        centerPanel.add(scrollPane, BorderLayout.CENTER);
-
-        // Add center panel to the inventory page
         inventoryBookPage.add(centerPanel, BorderLayout.CENTER);
+
+        // Load and display books in the inventory
+        refreshInventoryTable();
+
+        // Bottom panel for the back button
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
         bottomPanel.setBackground(Color.WHITE);
 
@@ -995,14 +941,67 @@ public class MainGUI extends JFrame {
         JButton backButton = new JButton("Back");
         backButton.setPreferredSize(new Dimension(150, 40));
         backButton.addActionListener(e -> {
-            switchToManageBookPage();
+            // When going back, refresh the inventory
+            refreshInventoryTable();
+            switchToManageBookPage();  // Switch to the previous page
         });
 
         bottomPanel.add(backButton);
-
         inventoryBookPage.add(bottomPanel, BorderLayout.SOUTH);
 
         backgroundPanel.add(inventoryBookPage, "InventoryBookPage");
+        inventoryBookPage.revalidate();
+        inventoryBookPage.repaint();
+    }
+
+    private void refreshInventoryTable() {
+        // Load the updated list of books from the file
+        List<BookManager.Book> books = BookManager.loadBooks();
+
+        // Define the column names for the inventory table
+        String[] columnNames = {"Title", "Publisher", "ISBN", "Author", "Quantity", "Genre"};
+
+        // Create a new DefaultTableModel with the column names
+        DefaultTableModel model = new DefaultTableModel(columnNames, 0);
+
+        // Add rows for each book in the list
+        for (BookManager.Book book : books) {
+            model.addRow(new Object[]{
+                    book.title,
+                    book.publisher,
+                    book.isbn,
+                    book.author,
+                    book.quantity,
+                    book.genre
+            });
+        }
+
+        // Check if the bookTable already exists
+        if (bookTable == null) {
+            // Create the table if it doesn't exist
+            bookTable = new JTable(model);
+            bookTable.setFillsViewportHeight(true);
+            bookTable.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+            bookTable.setRowHeight(25);
+            bookTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
+            bookTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 14));
+
+            // Create a JScrollPane to wrap the table
+            JScrollPane scrollPane = new JScrollPane(bookTable);
+            scrollPane.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
+
+            // Add the scrollPane to the center panel
+            centerPanel.removeAll(); // Clear any existing components
+            centerPanel.add(scrollPane, BorderLayout.CENTER);
+        } else {
+            // Update the model of the existing table (rebuild it to reflect changes)
+            bookTable.setModel(model);
+            bookTable.repaint(); // Force a repaint to ensure the table updates
+        }
+
+        // Revalidate and repaint the panel to ensure the updates are reflected
+        centerPanel.revalidate();
+        centerPanel.repaint();
     }
 
     private void setupCheckBookAvailability() {
@@ -1035,6 +1034,37 @@ public class MainGUI extends JFrame {
         checkBookAvailability.add(topPanel, BorderLayout.NORTH);
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.setBackground(Color.WHITE);
+
+        // Add a method call to reload the books each time the availability check page is set up
+        loadBooksIntoTable(centerPanel);
+
+        // Add center panel to the check book availability page
+        checkBookAvailability.add(centerPanel, BorderLayout.CENTER);
+
+        // Bottom panel for the back button
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        bottomPanel.setBackground(Color.WHITE);
+
+        // Back Button (Ensure only one listener)
+        JButton backButton = new JButton("Back");
+        backButton.setPreferredSize(new Dimension(150, 40));
+        backButton.addActionListener(e -> {
+            switchToMainPage();  // Switch to the main panel when the back button is clicked
+            logOutButton.setVisible(false);  // Hide log out button when switching back to the previous page
+        });
+
+        bottomPanel.add(backButton);
+        checkBookAvailability.add(bottomPanel, BorderLayout.SOUTH);
+
+        backgroundPanel.add(checkBookAvailability, "CheckBookAvailabilityPage");
+
+        // Revalidate the page to ensure changes are reflected
+        checkBookAvailability.revalidate();
+        checkBookAvailability.repaint();
+    }
+
+    private void loadBooksIntoTable(JPanel centerPanel) {
+        centerPanel.removeAll();
 
         // Load books from the file
         List<BookManager.Book> books = BookManager.loadBooks();
@@ -1082,24 +1112,10 @@ public class MainGUI extends JFrame {
         scrollPane.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
         centerPanel.add(scrollPane, BorderLayout.CENTER);
 
-        // Add center panel to the check book availability page
-        checkBookAvailability.add(centerPanel, BorderLayout.CENTER);
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        bottomPanel.setBackground(Color.WHITE);
-
-        // Back Button
-        JButton backButton = new JButton("Back");
-        backButton.setPreferredSize(new Dimension(150, 40));
-        backButton.addActionListener(e -> {
-            switchToMainPage();
-        });
-
-        bottomPanel.add(backButton);
-
-        checkBookAvailability.add(bottomPanel, BorderLayout.SOUTH);
-
-        backgroundPanel.add(checkBookAvailability, "CheckBookAvailabilityPage");
+        centerPanel.revalidate();
+        centerPanel.repaint();
     }
+
 
     private JButton createStyledButton(String text) {
         JButton button = new JButton(text);
@@ -1205,6 +1221,7 @@ public class MainGUI extends JFrame {
     }
 
     private void switchToInventoryBookPage() {
+        refreshInventoryTable();
         darkModeButton.setVisible(false);
         logOutButton.setVisible(false);
         CardLayout cardLayout = (CardLayout) backgroundPanel.getLayout();
