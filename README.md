@@ -9,7 +9,8 @@ Manage Books: Add, remove, update, and view the total inventory of books in the 
 Manage Fines: View fines present in the system and optionally remove fines if they are waived.
 Check Book Availability: Provides a real-time view of the current inventory status, displaying whether books are available or not.
 
-How to Use
+# How to Use
+
 Install the System:
 
 Clone this repository to your local machine.
@@ -19,8 +20,8 @@ Build and run the project in your IDE.
 Main Interface:
 The main interface is powered by CardLayout, which allows users to switch between different panels and functionalities smoothly.
 You will find various buttons for different operations, including managing users, managing books, managing fines, and checking book availability.
-Features Explained:
 
+# Features Explained:
 Manage Users:
 You can add new users, remove existing ones, and update user information from the "Manage User" page.
 Manage Books:
@@ -34,6 +35,6 @@ Java: Primary language used for building the GUI.
 Swing: For creating interactive interfaces and components.
 CardLayout: To manage page transitions in the application.
 
-Authors
+# Authors
 Sean Patrick Lopez
 Daryl Vincent Gonzales
