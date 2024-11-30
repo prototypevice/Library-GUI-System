@@ -14,26 +14,26 @@ public class ManageUserPanel extends JPanel {
         gbc.gridx = 0;
         gbc.gridy = 0;
 
-        // Add Book Button
-        JButton addBookButton = createStyledButton("Add User");
-        buttonPanel.add(addBookButton, gbc);
+        // Add User Button
+        JButton addUserButton = createStyledButton("Add User");
+        buttonPanel.add(addUserButton, gbc);
 
         gbc.gridy++;
-        // Remove Book Button
-        JButton removeBookButton = createStyledButton("Remove User");
-        buttonPanel.add(removeBookButton, gbc);
+        // Remove User Button
+        JButton removeUserButton = createStyledButton("Remove User");
+        buttonPanel.add(removeUserButton, gbc);
 
         gbc.gridy++;
-        // Update Book Button
-        JButton updateBookButton = createStyledButton("Update User");
-        buttonPanel.add(updateBookButton, gbc);
+        // Update User Button
+        JButton updateUserButton = createStyledButton("Update User");
+        buttonPanel.add(updateUserButton, gbc);
 
         add(buttonPanel, BorderLayout.CENTER);
 
         // Return Button
         JButton returnButton = new JButton("Return to Home");
         returnButton.setPreferredSize(new Dimension(150, 40));
-        returnButton.addActionListener(e -> mainGUI.switchToMainPage());
+        returnButton.addActionListener(e -> mainGUI.switchToPage("MainPage"));  // Corrected line
 
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         bottomPanel.add(returnButton);
@@ -48,5 +48,5 @@ public class ManageUserPanel extends JPanel {
         return button;
     }
 
-    //COMMENT
+    // COMMENT
 }
